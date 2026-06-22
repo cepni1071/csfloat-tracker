@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.cepni.csfloat-tracker</string>
+
+    <!-- Arka plan kontrolcüsü: uygulama kapalı olsa da çalışır -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.12/bin/python3</string>
+        <string>/Users/cepni/test-claude/csfloat-tracker/checker.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/cepni/test-claude/csfloat-tracker</string>
+
+    <!-- Her 5 dakikada bir (CHECK_INTERVAL_MINUTES ile uyumlu tut) -->
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/cepni/test-claude/csfloat-tracker/checker.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/cepni/test-claude/csfloat-tracker/checker.log</string>
+</dict>
+</plist>

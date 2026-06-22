@@ -12,6 +12,7 @@ venv/
 cache/
 tracker.db
 *.db
+checker.log
 
 # OS
 .DS_Store
