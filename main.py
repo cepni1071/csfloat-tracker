@@ -15,6 +15,7 @@ import api
 import skindata
 import notifier
 import config
+import core
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -167,11 +168,12 @@ class App(ctk.CTk):
         body = ctk.CTkFrame(self, fg_color=DARK_BG)
         body.pack(fill="both", expand=True)
 
-        # Sol panel
-        left = ctk.CTkFrame(body, width=300, fg_color=PANEL_BG,
-                            border_width=1, border_color=BORDER, corner_radius=12)
+        # Sol panel — kaydırılabilir (içerik uzun, alttaki bildirim kutusuna
+        # erişebilmek için scroll gerekiyor)
+        left = ctk.CTkScrollableFrame(body, width=320, fg_color=PANEL_BG,
+                                      border_width=1, border_color=BORDER,
+                                      corner_radius=12, scrollbar_button_color=BORDER)
         left.pack(side="left", fill="y", padx=(12, 6), pady=12)
-        left.pack_propagate(False)
 
         self._build_left(left)
 
@@ -206,21 +208,23 @@ class App(ctk.CTk):
             ("AK-47", "AK-47"), ("M4A1-S", "M4A1-S"),
             ("M4A4", "M4A4"), ("AWP", "AWP"),
         ]
-        cat_scroll = ctk.CTkScrollableFrame(parent, height=44, fg_color="transparent",
-                                            orientation="horizontal",
-                                            scrollbar_button_color=BORDER)
-        cat_scroll.pack(fill="x", padx=14, pady=(6, 4))
-        for label, target in CATS:
-            btn = ctk.CTkButton(cat_scroll, text=label, width=95, height=28,
+        # 2x3 ızgara — 6 çip de tek bakışta görünür (yatay kaydırma yok, böylece
+        # kaydırılabilir sol panelle iç içe scroll çakışması olmaz).
+        cat_grid = ctk.CTkFrame(parent, fg_color="transparent")
+        cat_grid.pack(fill="x", padx=14, pady=(6, 4))
+        for col in range(3):
+            cat_grid.grid_columnconfigure(col, weight=1, uniform="cat")
+        for idx, (label, target) in enumerate(CATS):
+            r, c = divmod(idx, 3)
+            btn = ctk.CTkButton(cat_grid, text=label, height=30,
                                 fg_color="#21262d", hover_color="#30363d",
                                 text_color=TEXT_DIM, font=("Arial", 11),
-                                border_width=1, border_color=BORDER, corner_radius=20)
+                                border_width=1, border_color=BORDER, corner_radius=16)
             if isinstance(target, list):
                 btn.configure(command=lambda m=target, b=btn: self._show_model_menu(m, b))
             else:
                 btn.configure(command=lambda q=target: self._select_category(q))
-            btn.pack(side="left", padx=3)
-        self._enable_trackpad_hscroll(cat_scroll)
+            btn.grid(row=r, column=c, padx=3, pady=3, sticky="ew")
 
         # Arama kutusu + arama butonu
         search_row = ctk.CTkFrame(parent, fg_color="transparent")
@@ -301,31 +305,42 @@ class App(ctk.CTk):
         self.stat_frame.pack(fill="x", padx=18)
         self._build_stats()
 
-    def _enable_trackpad_hscroll(self, scroll_frame):
-        """Yatay kategori barını trackpad/tekerlekle kaydırılabilir yapar.
-        CTk macOS'ta Shift basılı değilken yalnızca dikey kaydırır; burada
-        her kaydırma hareketini yatay xview'e bağlıyoruz."""
-        canvas = scroll_frame._parent_canvas
+        # Bildirim maili — fiyat düşünce/hedef altına inince bu adrese mail gider
+        ctk.CTkFrame(parent, height=1, fg_color=BORDER).pack(fill="x", padx=18, pady=(12, 10))
+        ctk.CTkLabel(parent, text="📧 Bildirim Maili", font=("Arial", 12, "bold"),
+                     text_color=TEXT_BRIGHT).pack(anchor="w", padx=18)
+        ctk.CTkLabel(parent, text="Hedef fiyat altına inince bildirim bu adrese gönderilir.",
+                     font=("Arial", 10), text_color=TEXT_DIM,
+                     wraplength=262, justify="left").pack(anchor="w", padx=18, pady=(0, 4))
+        mail_row = ctk.CTkFrame(parent, fg_color="transparent")
+        mail_row.pack(fill="x", padx=18, pady=(0, 12))
+        self.entry_notify_email = ctk.CTkEntry(
+            mail_row, height=34, placeholder_text="ornek@mail.com",
+            fg_color="#21262d", border_color=BORDER, border_width=1,
+            text_color=TEXT_BRIGHT, font=("Arial", 12), corner_radius=8)
+        self.entry_notify_email.insert(0, database.get_setting("notify_email", "") or "")
+        self.entry_notify_email.pack(side="left", fill="x", expand=True)
+        self.entry_notify_email.bind("<Return>", lambda e: self._save_notify_email())
+        ctk.CTkButton(mail_row, text="Kaydet", width=64, height=34,
+                      command=self._save_notify_email, fg_color=ACCENT,
+                      hover_color="#e07b00", text_color="white",
+                      font=("Arial", 12, "bold"), corner_radius=8).pack(side="left", padx=(8, 0))
 
-        def _on_wheel(event):
-            if canvas.xview() == (0.0, 1.0):
-                return  # taşma yok, kaydırılacak bir şey yok
-            canvas.xview_scroll(-1 * int(event.delta), "units")
-            return "break"
-
-        def _bind(widget):
-            widget.bind("<MouseWheel>", _on_wheel, add="+")
-            widget.bind("<Shift-MouseWheel>", _on_wheel, add="+")
-            for child in widget.winfo_children():
-                _bind(child)
-
-        _bind(scroll_frame)
-        _bind(canvas)
+    def _save_notify_email(self):
+        val = self.entry_notify_email.get().strip()
+        if val and "@" not in val:
+            self.status_label.configure(text="● Geçersiz e-posta", text_color=RED)
+            return
+        database.set_setting("notify_email", val)
+        msg = "Bildirim maili kaydedildi" if val else "Bildirim maili temizlendi"
+        self.status_label.configure(text=f"● {msg}", text_color=GREEN)
 
     # ── Bıçak / Eldiven model alt-menüsü ──────────────────────────────────────
 
     def _show_model_menu(self, models, anchor):
-        """Bir kategori chip'inin altında model listesini açar (statik, API yok)."""
+        """Model listesini ARAMA KUTUSUNUN altında açar (kategori çiplerini
+        örtmez). Statik liste, API yok. grab yok — kapanma ana-pencere
+        tıklamasıyla (_on_app_click) ya da bir model seçince olur."""
         self._hide_model_menu()
         self._hide_dropdown()
 
@@ -349,26 +364,9 @@ class App(ctk.CTk):
                           ).pack(fill="x", pady=1)
 
         self.update_idletasks()
-        x = anchor.winfo_rootx()
-        y = anchor.winfo_rooty() + anchor.winfo_height() + 4
+        x = self.entry_name.winfo_rootx()
+        y = self.entry_name.winfo_rooty() + self.entry_name.winfo_height() + 4
         menu.geometry(f"204x{rows * 32 + 8}+{x}+{y}")
-
-        # Menü dışına tıklayınca kapansın. macOS'ta borderless pencerede
-        # <FocusOut> güvenilir değil; bunun yerine modal grab + koordinat
-        # kontrolü kullanıyoruz. Menü içindeki butonlar normal çalışır.
-        menu.bind("<Button-1>", self._model_menu_click, add="+")
-        menu.bind("<Escape>", lambda e: self._hide_model_menu())
-        self._grab_model_menu(menu)
-
-    def _grab_model_menu(self, menu, tries=0):
-        # Pencere haritalanana kadar grab başarısız olabilir; birkaç kez dene.
-        if menu is not self._model_menu:
-            return
-        try:
-            menu.grab_set()
-        except Exception:
-            if tries < 10:
-                self.after(50, lambda: self._grab_model_menu(menu, tries + 1))
 
     def _model_menu_click(self, event):
         m = self._model_menu
@@ -396,10 +394,6 @@ class App(ctk.CTk):
         m = getattr(self, "_model_menu", None)
         if m is not None:
             self._model_menu = None
-            try:
-                m.grab_release()
-            except Exception:
-                pass
             try:
                 m.destroy()
             except Exception:
@@ -546,11 +540,6 @@ class App(ctk.CTk):
             if gi < len(groups) - 1:
                 ctk.CTkFrame(scroll, height=1, fg_color=BORDER).pack(fill="x")
 
-        # Dışına tıklayınca kapansın (macOS'ta borderless topmost pencerede
-        # odak-tabanlı kapanma güvenilmez). İçindeki wear butonları çalışır.
-        self._dropdown.bind("<Button-1>", self._dropdown_click, add="+")
-        self._grab_window(self._dropdown)
-
     def _dropdown_click(self, event):
         d = self._dropdown
         if d is None:
@@ -586,21 +575,8 @@ class App(ctk.CTk):
         self._pending_image_url = image_url
         self._hide_dropdown()
 
-    def _grab_window(self, win, tries=0):
-        # Pencere haritalanana kadar grab başarısız olabilir; birkaç kez dene.
-        try:
-            if win.winfo_exists():
-                win.grab_set()
-        except Exception:
-            if tries < 10:
-                self.after(50, lambda: self._grab_window(win, tries + 1))
-
     def _hide_dropdown(self):
         if self._dropdown:
-            try:
-                self._dropdown.grab_release()
-            except Exception:
-                pass
             try:
                 self._dropdown.destroy()
             except Exception:
@@ -772,38 +748,11 @@ class App(ctk.CTk):
             self._make_skin_row(self.scroll_frame, skin)
 
     def _check_prices(self):
-        skins = database.get_all_skins()
+        # Kontrol mantığı core'da (uygulama kapalıyken checker.py de aynı kodu
+        # kullanır). Burada yalnızca durum çubuğunu güncelliyoruz.
         self.after(0, lambda: self.status_label.configure(
             text="● Kontrol ediliyor...", text_color=ACCENT))
-        for skin in skins:
-            skin_id, name, target, last_price, fmin, fmax, _, global_price = skin
-            fmin = float(fmin or 0.0)
-            fmax = float(fmax or 1.0)
-            has_filter = (fmin != 0.0 or fmax != 1.0)
-
-            # Wear olmayan (Floatsız) isimler tüm wearleri arar
-            is_base = not any(f"({w})" in name for w in api.WEARS)
-            if is_base:
-                listing = api.get_lowest_across_wears(name, fmin, fmax)
-            else:
-                listing = api.get_lowest_listing(name, fmin, fmax)
-            if not listing:
-                continue
-            new_price = listing["price"]
-
-            # Float filtresi varsa genel fiyatı da çek
-            new_global = None
-            if has_filter:
-                g = api.get_lowest_across_wears(name) if is_base else api.get_lowest_listing(name)
-                new_global = g["price"] if g else None
-            if last_price and new_price < last_price:
-                drop_pct = ((last_price - new_price) / last_price) * 100
-                if drop_pct >= config.PRICE_DROP_THRESHOLD:
-                    notifier.notify_price_drop(name, last_price, new_price, target)
-            if target and new_price <= target and (not last_price or last_price > target):
-                notifier.notify_target_reached(name, new_price, target)
-            database.update_last_price(skin_id, new_price, new_global)
-
+        core.check_all_skins()
         self.after(0, self._refresh_list)
         self.after(0, lambda: self.status_label.configure(
             text=f"● Son kontrol: {time.strftime('%H:%M')}", text_color=GREEN))
