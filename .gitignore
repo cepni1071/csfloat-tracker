@@ -1,0 +1,17 @@
+# Secrets / local config
+config.py
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# App data
+cache/
+tracker.db
+*.db
+
+# OS
+.DS_Store
