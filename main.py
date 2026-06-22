@@ -396,7 +396,6 @@ class App(ctk.CTk):
         threading.Thread(target=self._fetch_and_sort, args=(query, my_id), daemon=True).start()
 
     def _fetch_and_sort(self, query, search_id):
-        import concurrent.futures
         try:
             skins = api.search_all_skins(query)
         except Exception as e:
@@ -411,33 +410,8 @@ class App(ctk.CTk):
             self.after(0, lambda: self.status_label.configure(text="● Hazır", text_color=GREEN))
             return
 
-        # Tüm (skin, wear) çiftleri için tek havuzda paralel CSFloat isteği
-        tasks = [(skin, wear) for skin in skins for wear in api.WEARS]
-
-        def fetch_one(task):
-            skin, wear = task
-            result = api.get_lowest_listing(f"{skin['base']} ({wear})")
-            return (skin["base"], result)
-
-        best_prices = {}  # base_name → cheapest result
-        try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=30) as ex:
-                for base, result in ex.map(fetch_one, tasks):
-                    if result:
-                        if base not in best_prices or result["price"] < best_prices[base]["price"]:
-                            best_prices[base] = result
-        except Exception as e:
-            print(f"CSFloat hata: {e}")
-
-        if search_id != self._search_id:
-            return
-
-        for skin in skins:
-            r = best_prices.get(skin["base"])
-            skin["cf_price"] = r["price"] if r else None
-
-        skins.sort(key=lambda s: s["cf_price"] or 99999)
-
+        # Not: CSFloat fiyatları burada ÇEKİLMEZ — API tasarrufu için.
+        # Fiyatlar yalnızca takip listesinde "🔄 Güncelle" ile sorgulanır.
         self.after(0, lambda: self._show_dropdown_groups(skins) if search_id == self._search_id else None)
 
     def _show_loading_dropdown(self):
@@ -451,7 +425,7 @@ class App(ctk.CTk):
         self._dropdown.attributes("-topmost", True)
         self._dropdown.configure(fg_color="#1c2128")
         ctk.CTkLabel(self._dropdown,
-                     text="⏳  CSFloat fiyatları çekiliyor...",
+                     text="⏳  Aranıyor...",
                      font=("Arial", 13), text_color=TEXT_DIM).pack(expand=True)
 
     def _show_dropdown_groups(self, groups):
