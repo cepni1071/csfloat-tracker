@@ -187,7 +187,6 @@ class App(ctk.CTk):
             except Exception:
                 pass
 
-        self._search_after_id = None
         self._dropdown = None
         self._pending_image_url = ""   # autocomplete'ten seçilen skin'in image_url'i
         self._float_min = 0.0
@@ -292,14 +291,23 @@ class App(ctk.CTk):
                           command=lambda q=query: self._select_category(q)
                           ).pack(side="left", padx=3)
 
-        # Arama kutusu
+        # Arama kutusu + arama butonu
+        search_row = ctk.CTkFrame(parent, fg_color="transparent")
+        search_row.pack(fill="x", padx=18, pady=(4, 4))
+
         self.entry_name = ctk.CTkEntry(
-            parent, placeholder_text="Skin ara...",
-            width=262, height=38, fg_color="#21262d", border_color=BORDER,
+            search_row, placeholder_text="Skin ara...",
+            height=38, fg_color="#21262d", border_color=BORDER,
             border_width=1, text_color=TEXT_BRIGHT, font=("Arial", 13), corner_radius=8)
-        self.entry_name.pack(padx=18, pady=(4, 4))
-        self.entry_name.bind("<KeyRelease>", self._on_type)
+        self.entry_name.pack(side="left", fill="x", expand=True)
+        self.entry_name.bind("<Return>", lambda e: self._do_search())
         self.entry_name.bind("<FocusOut>", lambda e: self.after(200, self._hide_dropdown))
+
+        self.search_btn = ctk.CTkButton(
+            search_row, text="Ara", command=self._do_search,
+            width=56, height=38, fg_color=ACCENT, hover_color="#e07b00",
+            text_color="white", font=("Arial", 13, "bold"), corner_radius=8)
+        self.search_btn.pack(side="left", padx=(8, 0))
 
         # Float slider bölümü
         ctk.CTkLabel(parent, text="Float Aralığı", font=("Arial", 12, "bold"),
@@ -373,14 +381,12 @@ class App(ctk.CTk):
         self.entry_name.insert(0, query)
         self._fetch_suggestions(query)
 
-    def _on_type(self, event):
+    def _do_search(self):
         query = self.entry_name.get().strip()
-        if self._search_after_id:
-            self.after_cancel(self._search_after_id)
         if len(query) < 2:
             self._hide_dropdown()
             return
-        self._search_after_id = self.after(400, lambda: self._fetch_suggestions(query))
+        self._fetch_suggestions(query)
 
     def _fetch_suggestions(self, query):
         self.status_label.configure(text="● Aranıyor...", text_color=ACCENT)
