@@ -41,7 +41,13 @@ WEAPON_TAGS = {
     "skeleton": "tag_weapon_knife_skeleton",
     "kukri": "tag_weapon_knife_kukri",
     "gloves": "tag_Type_Hands",       "eldiven": "tag_Type_Hands",
+    "knife": "tag_CSGO_Type_Knife",   "knives": "tag_CSGO_Type_Knife",
+    "bicak": "tag_CSGO_Type_Knife",   "bıçak": "tag_CSGO_Type_Knife",
 }
+
+# Steam "Type" kategorisi tag'leri category_730_Type[] ile sorgulanır;
+# diğer silah tag'leri category_730_Weapon[] ile.
+TYPE_TAGS = {"tag_Type_Hands", "tag_CSGO_Type_Knife"}
 
 _cache: dict = {}  # key → (timestamp, list)
 
@@ -112,7 +118,7 @@ def search_all_skins(query: str) -> list[dict]:
     params = {"appid": 730, "norender": 1,
               "sort_column": "name", "sort_dir": "asc", "count": 10}
     if tag:
-        cat_key = "category_730_Type[]" if tag == "tag_Type_Hands" else "category_730_Weapon[]"
+        cat_key = "category_730_Type[]" if tag in TYPE_TAGS else "category_730_Weapon[]"
         params[cat_key] = tag
     elif len(cache_key) >= 2:
         params["query"] = query
