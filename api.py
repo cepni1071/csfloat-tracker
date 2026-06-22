@@ -2,6 +2,7 @@ import requests
 import concurrent.futures
 import re
 import time
+import threading
 from urllib.parse import quote
 import config
 
@@ -54,6 +55,38 @@ _cache: dict = {}  # key → (timestamp, list)
 def get_headers():
     return {"Authorization": config.CSFLOAT_API_KEY}
 
+# --- CSFloat hız sınırlama (rate limit) ---
+# İstekleri seyrek tutar: 429 ("too many requests") almamak için her CSFloat
+# isteği arasına en az MIN_INTERVAL saniye koyar; 429 gelirse geri çekilip
+# (backoff) tekrar dener.
+MIN_INTERVAL = float(getattr(config, "CSFLOAT_MIN_INTERVAL", 1.2))
+_rate_lock = threading.Lock()
+_last_request = [0.0]
+
+def _throttle():
+    with _rate_lock:
+        wait = MIN_INTERVAL - (time.time() - _last_request[0])
+        if wait > 0:
+            time.sleep(wait)
+        _last_request[0] = time.time()
+
+def _csfloat_get(url: str, retries: int = 4):
+    """Throttle'lı CSFloat GET. 429'da Retry-After'a/backoff'a uyup tekrar dener.
+    Tüm denemeler 429 olursa None döndürür."""
+    for attempt in range(retries):
+        _throttle()
+        resp = requests.get(url, headers=get_headers(), timeout=15)
+        if resp.status_code == 429:
+            ra = resp.headers.get("Retry-After", "")
+            wait = float(ra) if ra.isdigit() else min(60, 5 * (attempt + 1))
+            print(f"CSFloat 429 (rate limit) — {wait:.0f}sn bekleniyor (deneme {attempt+1}/{retries})")
+            time.sleep(wait)
+            continue
+        resp.raise_for_status()
+        return resp
+    print("CSFloat: rate limit aşıldı, bu sorgu atlandı.")
+    return None
+
 # --- CSFloat ---
 
 WEARS = ["Factory New", "Minimal Wear", "Field-Tested", "Well-Worn", "Battle-Scarred"]
@@ -66,8 +99,9 @@ def get_lowest_listing(market_hash_name: str, float_min=0.0, float_max=1.0) -> d
             url += f"&min_float={float_min:.4f}"
         if float_max < 1.0:
             url += f"&max_float={float_max:.4f}"
-        resp = requests.get(url, headers=get_headers(), timeout=10)
-        resp.raise_for_status()
+        resp = _csfloat_get(url)
+        if resp is None:
+            return None
         listings = resp.json().get("data", [])
         if not listings:
             return None
