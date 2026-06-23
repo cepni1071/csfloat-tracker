@@ -1,0 +1,46 @@
+name: CSFloat price check
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"     # her 5 dakikada bir (GitHub best-effort; yoğunlukta gecikebilir)
+  workflow_dispatch:           # "Run workflow" ile elle de tetiklenebilir
+
+concurrency:
+  group: price-check
+  cancel-in-progress: false    # gecikme olursa çalışmalar üst üste binmesin
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install requests
+
+      - name: Write config.py from secrets
+        run: |
+          cat > config.py << 'EOF'
+          CSFLOAT_API_KEY = "${{ secrets.CSFLOAT_API_KEY }}"
+          TELEGRAM_BOT_TOKEN = ""
+          TELEGRAM_CHAT_ID = ""
+          SUPABASE_URL = "${{ secrets.SUPABASE_URL }}"
+          SUPABASE_KEY = "${{ secrets.SUPABASE_KEY }}"
+          CHECK_INTERVAL_MINUTES = 5
+          PRICE_DROP_THRESHOLD = 5
+          CSFLOAT_MIN_INTERVAL = 1.2
+          EMAIL_ENABLED = True
+          SMTP_HOST = "smtp.gmail.com"
+          SMTP_PORT = 587
+          SMTP_USER = "${{ secrets.SMTP_USER }}"
+          SMTP_PASSWORD = "${{ secrets.SMTP_PASSWORD }}"
+          EMAIL_TO = ""
+          EOF
+
+      - name: Run price checker
+        run: python checker.py
