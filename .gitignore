@@ -16,3 +16,6 @@ checker.log
 
 # OS
 .DS_Store
+
+# Mac launchd ajanı — artık GitHub Actions kullanıyoruz (yol/kullanıcı adı sızmasın)
+com.cepni.csfloat-tracker.plist
