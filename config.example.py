@@ -2,6 +2,10 @@ CSFLOAT_API_KEY = ""       # csfloat.com > Settings > API Key
 TELEGRAM_BOT_TOKEN = ""    # @BotFather'dan alacaksın
 TELEGRAM_CHAT_ID = ""      # @userinfobot'tan alacaksın
 
+# Supabase bulut veritabanı (Mac arayüzü + GitHub Actions checker aynı DB'yi kullanır)
+SUPABASE_URL = ""    # Supabase > Project URL
+SUPABASE_KEY = ""    # Supabase > Project Settings > API > service_role (secret) anahtarı
+
 CHECK_INTERVAL_MINUTES = 5  # Kaç dakikada bir kontrol etsin
 PRICE_DROP_THRESHOLD = 5    # % kaç düşünce bildirim gelsin
 CSFLOAT_MIN_INTERVAL = 1.2  # CSFloat istekleri arası en az saniye (429'a takılmamak için)
